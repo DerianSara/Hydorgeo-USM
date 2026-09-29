@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HydroGeo USM - Trazado Didáctico e Hidráulico de Redes</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 40%, #bae6fd 100%);
+            color: #0f172a;
+            min-height: 100vh;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        canvas {
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            touch-action: none;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0; 
+            border-radius: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #0284c7; 
+            border-radius: 6px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0369a1;
+        }
+        .beach-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(14px);
+            border: 1.5px solid #bae6fd;
+            box-shadow: 0 12px 30px -5px rgba(14, 165, 233, 0.12), 0 8px 12px -6px rgba(14, 165, 233, 0.08);
+        }
+        .grab-cursor {
+            cursor: grab;
+        }
+        .grabbing-cursor {
+            cursor: grabbing !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-sky-200 selection:text-sky-900">
+
+    <header class="bg-white/95 backdrop-blur-md border-b-2 border-sky-200 sticky top-0 z-30 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex flex-col lg:flex-row justify-between items-center gap-4">
+            
+            <!-- Logo & Title Section -->
+            <div class="flex items-center gap-3.5">
+                <!-- Custom HydroGeo USM Emblem Logo -->
+                <div class="relative group">
+                    <div class="p-2.5 bg-gradient-to-tr from-sky-800 via-teal-600 to-emerald-400 rounded-2xl text-white shadow-lg shadow-sky-600/30 flex items-center justify-center transform transition duration-300 group-hover:scale-105">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9" viewBox="0 0 64 64" fill="none">
+                            <circle cx="32" cy="32" r="30" fill="url(#logo-grad)" stroke="#ffffff" stroke-width="2"/>
+                            <!-- Water Drops & Grid Nodes -->
+                            <path d="M32 10C32 10 18 28 18 38C18 45.732 24.268 52 32 52C39.732 52 46 45.732 46 38C46 28 32 10 32 10Z" fill="white" fill-opacity="0.25"/>
+                            <path d="M32 16C32 16 22 30 22 38C22 43.5228 26.4772 48 32 48C37.5228 48 42 43.5228 42 38C42 30 32 16 32 16Z" fill="white"/>
+                            <!-- Hydraulic Flow Pipes -->
+                            <circle cx="32" cy="38" r="5" fill="#0284c7"/>
+                            <path d="M12 38H22M42 38H52M32 18V28" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+                            <circle cx="12" cy="38" r="3.5" fill="#10b981"/>
+                            <circle cx="52" cy="38" r="3.5" fill="#38bdf8"/>
+                            <defs>
+                                <linearGradient id="logo-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#0369a1"/>
+                                    <stop offset="0.5" stop-color="#0d9488"/>
+                                    <stop offset="1" stop-color="#10b981"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-sky-950">
+                            HydroGeo <span class="text-teal-600">USM</span>
+                        </h1>
+                        <span class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-300 uppercase tracking-wider">
+                            Santa Marta Edición
+                        </span>
+                    </div>
+                    <p class="text-xs sm:text-sm font-bold text-slate-600">
+                        Plataforma Didáctica y Profesional de Trazado de Redes, Presión Hidráulica y Costos
+                    </p>
+                </div>
+            </div>
+
+            <!-- Global Controls & Scale Info -->
+            <div class="flex items-center gap-3 flex-wrap justify-end">
+                
+                <!-- Scale Factor with Explanatory Popover Tooltip -->
+                <div class="relative group bg-sky-50 px-3.5 py-1.5 rounded-2xl border border-sky-200 flex items-center gap-2 shadow-sm">
+                    <span class="text-slate-800 font-extrabold text-xs sm:text-sm flex items-center gap-1">
+                        1 Unid. Plano =
+                    </span>
+                    <input type="number" id="cfg-scale" value="10" min="1" class="w-16 bg-white px-2 py-1 rounded-xl border-2 border-sky-300 text-sky-900 font-mono text-center font-black text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+                    <span class="text-slate-800 font-extrabold text-xs sm:text-sm">m</span>
+                    
+                    <button id="btn-scale-info" type="button" class="text-sky-600 hover:text-sky-800 font-black text-xs bg-sky-200/80 hover:bg-sky-200 w-5 h-5 rounded-full flex items-center justify-center transition" title="¿Qué significa esta escala?">
+                        ?
+                    </button>
+
+                    <!-- Scale Explanation Tooltip -->
+                    <div id="scale-tooltip" class="hidden absolute top-12 right-0 w-72 p-3.5 bg-slate-900 text-slate-100 text-xs rounded-2xl shadow-xl z-50 border border-slate-700 space-y-1.5">
+                        <p class="font-bold text-sky-400 flex items-center gap-1">💡 ¿Qué es "1 Unid. Plano = m"?</p>
+                        <p class="text-slate-300 leading-snug">
+                            En el mapa cartesiano $(X, Y)$, la distancia entre dos puntos mide "unidades". Como en la vida real la tubería se compra por <strong>metros</strong>, este factor convierte el plano a la realidad:
+                        </p>
+                        <div class="bg-slate-950 p-2 rounded-xl text-[11px] font-mono text-teal-300 border border-slate-800">
+                            1 Unid. = 10m ➔ 5 Unidades en plano = 50 Metros reales de tubería PVC.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Currency TRM -->
+                <div class="bg-sky-50 px-3 py-1.5 rounded-2xl border border-sky-200 flex items-center gap-2 shadow-sm">
+                    <span class="text-slate-800 font-extrabold text-xs sm:text-sm">TRM USD:</span>
+                    <span class="text-slate-600 font-extrabold text-xs">$</span>
+                    <input type="number" id="cfg-trm" value="4000" class="w-16 bg-white px-2 py-1 rounded-xl border-2 border-sky-300 text-teal-800 font-mono font-black text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+
+                <!-- Total Network Budget -->
+                <div class="bg-gradient-to-r from-teal-600 via-sky-700 to-sky-900 text-white px-4 py-2 rounded-2xl shadow-md text-right">
+                    <span class="text-teal-200 block text-[10px] uppercase font-extrabold tracking-wider">Presupuesto Red</span>
+                    <div class="flex items-baseline gap-2 font-mono">
+                        <span id="summary-total-cop" class="font-black text-base sm:text-lg text-white">$ 0 COP</span>
+                        <span id="summary-total-usd" class="text-teal-200 text-xs font-bold">($0 USD)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Panel: Form, Parameters & Segment List -->
+        <div class="lg:col-span-5 flex flex-col gap-5">
+            
+            <!-- Pipe Segment Creator Form -->
+            <div class="beach-card p-5 rounded-3xl space-y-4">
+                <div class="flex justify-between items-center border-b border-sky-100 pb-3">
+                    <h2 class="text-base sm:text-lg font-black text-sky-950 flex items-center gap-2">
+                        <span class="p-1.5 bg-sky-100 text-sky-700 rounded-xl text-base">✏️</span> Trazar Tramo de Tubería
+                    </h2>
+                    <span class="text-xs font-bold text-sky-700 bg-sky-100 px-2.5 py-1 rounded-lg border border-sky-200">Coordenadas (X, Y)</span>
+                </div>
+
+                <form id="form-add-segment" class="space-y-4">
+                    <!-- Coordinate Inputs -->
+                    <div class="grid grid-cols-2 gap-3 bg-sky-50/80 p-3.5 rounded-2xl border border-sky-200">
+                        <div>
+                            <span class="block text-xs font-black text-sky-900 uppercase tracking-wider mb-2">📍 Punto A (Inicio)</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-slate-600 font-bold text-xs mb-1">X1:</label>
+                                    <input type="number" id="inp-x1" value="-15" class="w-full bg-white border-2 border-sky-200 rounded-xl p-2 text-slate-900 font-mono font-bold text-center text-sm focus:ring-2 focus:ring-sky-500">
+                                </div>
+                                <div>
+                                    <label class="block text-slate-600 font-bold text-xs mb-1">Y1:</label>
+                                    <input type="number" id="inp-y1" value="10" class="w-full bg-white border-2 border-sky-200 rounded-xl p-2 text-slate-900 font-mono font-bold text-center text-sm focus:ring-2 focus:ring-sky-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="block text-xs font-black text-teal-900 uppercase tracking-wider mb-2">🎯 Punto B (Llegada)</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-slate-600 font-bold text-xs mb-1">X2:</label>
+                                    <input type="number" id="inp-x2" value="10" class="w-full bg-white border-2 border-teal-200 rounded-xl p-2 text-slate-900 font-mono font-bold text-center text-sm focus:ring-2 focus:ring-teal-500">
+                                </div>
+                                <div>
+                                    <label class="block text-slate-600 font-bold text-xs mb-1">Y2:</label>
+                                    <input type="number" id="inp-y2" value="10" class="w-full bg-white border-2 border-teal-200 rounded-xl p-2 text-slate-900 font-mono font-bold text-center text-sm focus:ring-2 focus:ring-teal-500">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Diameter & Valve Selection -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-extrabold text-slate-700 mb-1">Diámetro Tubería</label>
+                            <select id="inp-diameter" class="w-full bg-white border-2 border-sky-200 rounded-xl p-2.5 text-slate-800 font-bold text-xs sm:text-sm focus:ring-2 focus:ring-sky-500">
+                                <option value="2">2" (Ø 50mm - Dist. Doméstica)</option>
+                                <option value="4" selected>4" (Ø 100mm - Estándar Red)</option>
+                                <option value="6">6" (Ø 150mm - Matriz Secundaria)</option>
+                                <option value="8">8" (Ø 200mm - Matriz Principal)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-extrabold text-slate-700 mb-1">Válvula en Punto Medio</label>
+                            <select id="inp-valve" class="w-full bg-white border-2 border-sky-200 rounded-xl p-2.5 text-slate-800 font-bold text-xs sm:text-sm focus:ring-2 focus:ring-sky-500">
+                                <option value="yes" selected>Sí (Incluir Válvula)</option>
+                                <option value="no">No (Solo Tubería)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Actions Buttons: Proyectar vs Registrar -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        <button type="button" id="btn-preview-segment" class="py-3 px-3 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-md transition transform active:scale-95 flex items-center justify-center gap-1.5">
+                            👁️ Proyectar en Plano
+                        </button>
+                        <button type="submit" id="btn-save-segment" class="py-3 px-3 bg-gradient-to-r from-sky-600 to-teal-600 hover:from-sky-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm rounded-2xl shadow-md shadow-sky-600/30 transition transform active:scale-95 flex items-center justify-center gap-1.5">
+                            ➕ Registrar Tramo
+                        </button>
+                    </div>
+
+                    <div id="preview-status-banner" class="hidden bg-amber-50 border border-amber-300 text-amber-900 text-xs p-2.5 rounded-xl font-medium text-center">
+                        👁️ <strong>Vista previa activa:</strong> Revisa la línea punteada amarilla en el plano. Haz clic en <strong>"Registrar Tramo"</strong> para guardarlo.
+                    </div>
+                </form>
+            </div>
+
+            <!-- Didactic Hydraulics & Pricing Parameters -->
+            <div class="beach-card p-4 sm:p-5 rounded-3xl space-y-3">
+                <h3 class="text-xs sm:text-sm font-black text-sky-900 uppercase tracking-wider border-b border-sky-100 pb-2 flex items-center gap-2">
+                    ⚙ Parámetros Didácticos de Presión y Precios
+                </h3>
+                
+                <div class="grid grid-cols-3 gap-2.5 text-xs">
+                    <div>
+                        <label class="block text-slate-700 font-bold mb-1">Presión Fuente (PSI)</label>
+                        <input type="number" id="cfg-source-pressure" value="50" class="w-full bg-white border-2 border-sky-300 rounded-xl p-2 text-sky-900 font-mono font-black text-sm text-center">
+                    </div>
+                    <div>
+                        <label class="block text-slate-700 font-bold mb-1">Precio / Metro ($ COP)</label>
+                        <input type="number" id="cfg-pipe-price" value="45000" class="w-full bg-white border-2 border-teal-300 rounded-xl p-2 text-teal-900 font-mono font-black text-sm text-center">
+                    </div>
+                    <div>
+                        <label class="block text-slate-700 font-bold mb-1">Precio Válvula ($ COP)</label>
+                        <input type="number" id="cfg-valve-price" value="180000" class="w-full bg-white border-2 border-amber-300 rounded-xl p-2 text-amber-900 font-mono font-black text-sm text-center">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Registered Pipe Segments List -->
+            <div class="beach-card p-4 sm:p-5 rounded-3xl space-y-3 flex-grow">
+                <div class="flex justify-between items-center border-b border-sky-100 pb-2">
+                    <h3 class="text-xs sm:text-sm font-black text-sky-950 uppercase tracking-wider flex items-center gap-2">
+                        📋 Tramos de la Red Registrados
+                    </h3>
+                    <button id="btn-clear-all" class="text-xs font-extrabold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-xl transition border border-rose-200">
+                        Borrar Todo
+                    </button>
+                </div>
+
+                <div id="segments-list" class="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                    <!-- Dynamic pipe segments inserted here -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Panel: Interactive Canvas with Pan/Zoom & Math Log -->
+        <div class="lg:col-span-7 flex flex-col gap-5">
+            
+            <!-- Interactive Canvas Container -->
+            <div class="beach-card rounded-3xl overflow-hidden flex flex-col h-[450px] relative shadow-xl">
+                
+                <!-- Canvas Top Bar -->
+                <div class="bg-white/95 border-b border-sky-200 px-4 py-2.5 flex flex-wrap justify-between items-center z-10 text-xs font-bold gap-2">
+                    <span class="text-sky-950 font-black flex items-center gap-2 text-sm">
+                        <span class="w-3.5 h-3.5 rounded-full bg-sky-500 animate-pulse"></span> Plano Cartesiano Interactivo (USM)
+                    </span>
+                    
+                    <!-- Pressure Legend -->
+                    <div class="flex items-center gap-2 text-[11px] font-bold flex-wrap">
+                        <span class="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> Buena (&gt;25 PSI)
+                        </span>
+                        <span class="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-100 text-amber-900 border border-amber-300">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-600"></span> Moderada (15-25)
+                        </span>
+                        <span class="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-100 text-rose-900 border border-rose-300">
+                            <span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span> Crítica (&lt;15 PSI)
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Canvas Viewport with Pan & Zoom Controls -->
+                <div class="flex-grow relative w-full h-full bg-sky-50/50 overflow-hidden grab-cursor" id="canvas-container">
+                    <canvas id="pipe-canvas" class="w-full h-full block"></canvas>
+
+                    <!-- Pan / Zoom On-Screen Control Buttons Overlay -->
+                    <div class="absolute top-3 right-3 flex flex-col gap-1.5 z-20">
+                        <button id="btn-zoom-in" class="w-8 h-8 bg-white/95 hover:bg-sky-100 text-sky-900 font-black text-base rounded-xl shadow border border-sky-300 flex items-center justify-center transition active:scale-95" title="Acercar (Zoom +)">+</button>
+                        <button id="btn-zoom-out" class="w-8 h-8 bg-white/95 hover:bg-sky-100 text-sky-900 font-black text-base rounded-xl shadow border border-sky-300 flex items-center justify-center transition active:scale-95" title="Alejar (Zoom -)">-</button>
+                        <button id="btn-reset-view" class="w-8 h-8 bg-white/95 hover:bg-sky-100 text-sky-900 font-black text-xs rounded-xl shadow border border-sky-300 flex items-center justify-center transition active:scale-95" title="Centrar Plano en (0,0)">🎯</button>
+                    </div>
+
+                    <!-- Pan Hint Overlay -->
+                    <div class="absolute top-3 left-3 bg-white/90 border border-sky-200 shadow-md text-slate-700 px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+                        <span>✋ <strong>Arrastra con el clic</strong> para moverte por el plano | 🖱️ <strong>Rueda</strong> para Zoom</span>
+                    </div>
+
+                    <!-- Mouse Coordinate Badge -->
+                    <div class="absolute bottom-3 right-3 bg-white/95 border-2 border-sky-300 shadow-md text-sky-950 px-3 py-1 rounded-xl text-xs font-mono font-bold" id="mouse-coords">
+                        Coord: (0, 0)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step-by-Step Educational Breakdown Log -->
+            <div class="beach-card p-5 rounded-3xl space-y-4">
+                <div class="flex justify-between items-center border-b border-sky-100 pb-3">
+                    <div>
+                        <h3 class="text-base sm:text-lg font-black text-sky-950 flex items-center gap-2">
+                            📐 Bitácora Didáctica: Cálculo Hidráulico y Geométrico
+                        </h3>
+                        <p class="text-xs text-slate-500 font-medium">Explicación paso a paso de fórmulas para estudiantes e ingenieros</p>
+                    </div>
+                    <span class="text-xs font-black text-sky-800 bg-sky-100 px-3 py-1 rounded-xl border border-sky-200">
+                        Didáctico + Pro
+                    </span>
+                </div>
+
+                <div id="math-breakdown-container" class="space-y-4 max-h-72 overflow-y-auto pr-1">
+                    <!-- Dynamic step-by-step math cards inserted here -->
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        // Application State
+        const state = {
+            segments: [
+                { id: 'T1', x1: -15, y1: 10, x2: 5, y2: 10, diameter: '4', hasValve: true },
+                { id: 'T2', x1: 5, y1: 10, x2: 25, y2: -5, diameter: '4', hasValve: true }
+            ],
+            previewSegment: null, // Temporary preview line when user clicks "Proyectar"
+            config: {
+                scale: 10, // 1 grid unit = 10 meters
+                trm: 4000, // 1 USD = 4000 COP
+                sourcePressurePsi: 50, // Initial water head pressure
+                pipePriceCop: 45000, // Cost per meter of pipe
+                valvePriceCop: 180000 // Cost per control valve
+            },
+            // Interactive Pan & Zoom Viewport State
+            viewport: {
+                zoom: 1.0,
+                panX: 0,
+                panY: 0,
+                isDragging: false,
+                startX: 0,
+                startY: 0,
+                hasDragged: false
+            },
+            // Friction Loss rates per meter (PSI/m)
+            lossRatesPsiPerM: {
+                '2': 0.12,  // High friction in small pipe
+                '4': 0.04,  // Standard distribution
+                '6': 0.015, // Low loss
+                '8': 0.005  // Minimal loss for main trunk line
+            }
+        };
+
+        const canvas = document.getElementById('pipe-canvas');
+        const ctx = canvas.getContext('2d');
+        const canvasContainer = document.getElementById('canvas-container');
+
+        // Geometry 1: Distance between 2 Points
+        function calcDistance(x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        // Geometry 2: Midpoint for Valve Placement
+        function calcMidpoint(x1, y1, x2, y2) {
+            return {
+                x: (x1 + x2) / 2,
+                y: (y1 + y2) / 2
+            };
+        }
+
+        // Hydraulics & Financial Processing Engine
+        function processSegmentsData() {
+            let currentPressure = parseFloat(state.config.sourcePressurePsi) || 50;
+            let totalLengthMeters = 0;
+            let totalCostCop = 0;
+            let totalValvesCount = 0;
+
+            const processed = state.segments.map((seg) => {
+                const gridDist = calcDistance(seg.x1, seg.y1, seg.x2, seg.y2);
+                const lengthM = gridDist * state.config.scale;
+                const midpoint = calcMidpoint(seg.x1, seg.y1, seg.x2, seg.y2);
+
+                // Hydraulic Loss Calculation
+                const lossRate = state.lossRatesPsiPerM[seg.diameter] || 0.04;
+                const pipeLoss = lengthM * lossRate;
+                const valveLoss = seg.hasValve ? 2.5 : 0; // Minor loss for valve restriction
+                const totalLoss = pipeLoss + valveLoss;
+
+                const startPressure = currentPressure;
+                const endPressure = Math.max(0, startPressure - totalLoss);
+                currentPressure = endPressure; // Remaining pressure flows to next connected segment
+
+                // Financial Calculation
+                const pipeCost = lengthM * state.config.pipePriceCop;
+                const valveCost = seg.hasValve ? state.config.valvePriceCop : 0;
+                const segmentCostCop = pipeCost + valveCost;
+
+                totalLengthMeters += lengthM;
+                totalCostCop += segmentCostCop;
+                if (seg.hasValve) totalValvesCount++;
+
+                return {
+                    ...seg,
+                    gridDist,
+                    lengthM,
+                    midpoint,
+                    startPressure,
+                    endPressure,
+                    pipeLoss,
+                    valveLoss,
+                    totalLoss,
+                    pipeCost,
+                    valveCost,
+                    segmentCostCop
+                };
+            });
+
+            const totalCostUsd = totalCostCop / state.config.trm;
+
+            return {
+                processedSegments: processed,
+                totalLengthMeters,
+                totalCostCop,
+                totalCostUsd,
+                totalValvesCount
+            };
+        }
+
+        // Coordinate Conversion Helpers (World Grid <-> Screen Pixels)
+        function gridToScreen(gx, gy, centerX, centerY, effectiveGridScale) {
+            return {
+                x: centerX + state.viewport.panX + (gx * effectiveGridScale),
+                y: centerY + state.viewport.panY - (gy * effectiveGridScale)
+            };
+        }
+
+        function screenToGrid(sx, sy, centerX, centerY, effectiveGridScale) {
+            return {
+                x: Math.round((sx - centerX - state.viewport.panX) / effectiveGridScale),
+                y: Math.round((centerY + state.viewport.panY - sy) / effectiveGridScale)
+            };
+        }
+
+        function drawCanvas() {
+            const rect = canvasContainer.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            const width = rect.width;
+            const height = rect.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            const baseGridScale = 9;
+            const effectiveGridScale = baseGridScale * state.viewport.zoom;
+
+            // Background
+            ctx.fillStyle = '#f0f9ff'; // sky-50
+            ctx.fillRect(0, 0, width, height);
+
+            // Cartesian Grid Lines (Sub-grid & Main grid)
+            const step = effectiveGridScale * 5;
+            const startX = (centerX + state.viewport.panX) % step;
+            const startY = (centerY + state.viewport.panY) % step;
+
+            ctx.strokeStyle = '#bae6fd'; // sky-200
+            ctx.lineWidth = 1;
+
+            for (let x = startX; x < width; x += step) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for (let y = startY; y < height; y += step) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+
+            // Main Origin Cartesian Axes (X=0 and Y=0)
+            const origin = gridToScreen(0, 0, centerX, centerY, effectiveGridScale);
+
+            ctx.strokeStyle = '#0284c7'; // sky-600
+            ctx.lineWidth = 2.5;
+
+            // X-Axis
+            ctx.beginPath(); ctx.moveTo(0, origin.y); ctx.lineTo(width, origin.y); ctx.stroke();
+            // Y-Axis
+            ctx.beginPath(); ctx.moveTo(origin.x, 0); ctx.lineTo(origin.x, height); ctx.stroke();
+
+            // Axis Text Labels
+            ctx.fillStyle = '#0369a1';
+            ctx.font = 'bold 12px JetBrains Mono, monospace';
+            ctx.fillText('+X', width - 30, Math.max(20, Math.min(height - 10, origin.y - 8)));
+            ctx.fillText('+Y', Math.max(10, Math.min(width - 40, origin.x + 8)), 20);
+            ctx.fillText('(0,0)', origin.x + 6, origin.y + 16);
+
+            const { processedSegments } = processSegmentsData();
+
+            // Draw Registered Pipe Segments
+            processedSegments.forEach((seg) => {
+                const p1 = gridToScreen(seg.x1, seg.y1, centerX, centerY, effectiveGridScale);
+                const p2 = gridToScreen(seg.x2, seg.y2, centerX, centerY, effectiveGridScale);
+
+                const pipeThick = Math.max(4, parseInt(seg.diameter) * 1.4 * state.viewport.zoom);
+
+                // Pipe Line
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.strokeStyle = '#0284c7';
+                ctx.lineWidth = pipeThick;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Draw Valve Icon at Midpoint
+                if (seg.hasValve) {
+                    const pm = gridToScreen(seg.midpoint.x, seg.midpoint.y, centerX, centerY, effectiveGridScale);
+
+                    ctx.save();
+                    ctx.translate(pm.x, pm.y);
+                    ctx.fillStyle = '#dc2626'; // Red Valve
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.5;
+
+                    ctx.beginPath();
+                    ctx.moveTo(-7, -7);
+                    ctx.lineTo(-7, 7);
+                    ctx.lineTo(7, -7);
+                    ctx.lineTo(7, 7);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // Node Point A
+                ctx.beginPath();
+                ctx.arc(p1.x, p1.y, 6 * state.viewport.zoom, 0, Math.PI * 2);
+                ctx.fillStyle = '#0284c7';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Node Point B (Color coded by pressure)
+                let pColor = '#16a34a'; // Green safe (>25 PSI)
+                if (seg.endPressure < 15) pColor = '#dc2626'; // Red critical (<15 PSI)
+                else if (seg.endPressure < 25) pColor = '#d97706'; // Amber warning (15-25 PSI)
+
+                ctx.beginPath();
+                ctx.arc(p2.x, p2.y, 7 * state.viewport.zoom, 0, Math.PI * 2);
+                ctx.fillStyle = pColor;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Pressure Badge at Node B
+                const badgeText = `P: ${seg.endPressure.toFixed(1)} PSI`;
+                ctx.font = 'bold 11px Inter, sans-serif';
+                const textWidth = ctx.measureText(badgeText).width;
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.strokeStyle = pColor;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(p2.x + 8, p2.y - 12, textWidth + 12, 22, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = pColor;
+                ctx.fillText(badgeText, p2.x + 14, p2.y + 3);
+
+                // Segment Label
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 11px JetBrains Mono, monospace';
+                ctx.fillText(`${seg.id} (${seg.lengthM.toFixed(1)}m)`, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2 - 10);
+            });
+
+            // Draw Temporary Preview Segment
+            if (state.previewSegment) {
+                const p = state.previewSegment;
+                const pp1 = gridToScreen(p.x1, p.y1, centerX, centerY, effectiveGridScale);
+                const pp2 = gridToScreen(p.x2, p.y2, centerX, centerY, effectiveGridScale);
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([8, 6]);
+                ctx.moveTo(pp1.x, pp1.y);
+                ctx.lineTo(pp2.x, pp2.y);
+                ctx.strokeStyle = '#f59e0b'; // Amber Preview Line
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                ctx.restore();
+
+                // Preview End Node
+                ctx.beginPath();
+                ctx.arc(pp2.x, pp2.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#f59e0b';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Preview Label
+                ctx.fillStyle = '#b45309';
+                ctx.font = 'bold 12px Inter, sans-serif';
+                ctx.fillText(`👁️ Vista Previa (${p.x2}, ${p.y2})`, pp2.x + 12, pp2.y + 4);
+            }
+        }
+
+        function updateUI() {
+            const { processedSegments, totalCostCop, totalCostUsd } = processSegmentsData();
+
+            // Update Header Currency Totals
+            const formatCop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(totalCostCop);
+            const formatUsd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(totalCostUsd);
+
+            document.getElementById('summary-total-cop').textContent = formatCop;
+            document.getElementById('summary-total-usd').textContent = `(${formatUsd})`;
+
+            // Render Segment Cards
+            const segmentsList = document.getElementById('segments-list');
+            segmentsList.innerHTML = '';
+
+            if (processedSegments.length === 0) {
+                segmentsList.innerHTML = `<div class="text-center py-6 text-slate-500 font-medium text-xs">No hay tramos registrados en la red. Agrega uno arriba.</div>`;
+            } else {
+                processedSegments.forEach((seg, idx) => {
+                    const card = document.createElement('div');
+                    card.className = "bg-white p-3 rounded-2xl border border-sky-100 shadow-sm hover:shadow-md transition flex items-center justify-between gap-3 text-xs";
+                    
+                    let pBadgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
+                    if (seg.endPressure < 15) pBadgeClass = "bg-rose-100 text-rose-900 border-rose-300";
+                    else if (seg.endPressure < 25) pBadgeClass = "bg-amber-100 text-amber-900 border-amber-300";
+
+                    card.innerHTML = `
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-black font-mono text-sky-800 text-xs bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-200">${seg.id}</span>
+                                <span class="text-slate-800 font-bold">(${seg.x1}, ${seg.y1}) ➔ (${seg.x2}, ${seg.y2})</span>
+                                <span class="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-bold">${seg.diameter}" Ø</span>
+                            </div>
+                            <div class="text-xs text-slate-600 font-mono flex items-center gap-2 flex-wrap">
+                                <span>Distancia: <strong class="text-sky-800 font-black">${seg.lengthM.toFixed(1)}m</strong></span>
+                                <span class="px-2 py-0.5 rounded-lg border font-black ${pBadgeClass}">P. Final: ${seg.endPressure.toFixed(1)} PSI</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-teal-800 font-black text-xs sm:text-sm">$${seg.segmentCostCop.toLocaleString('es-CO')}</span>
+                            <button onclick="removeSegment(${idx})" class="text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 font-bold text-sm px-2 py-0.5 rounded-xl transition" title="Eliminar Tramo">✕</button>
+                        </div>
+                    `;
+                    segmentsList.appendChild(card);
+                });
+            }
+
+            // Render Didactic Math Log
+            const mathContainer = document.getElementById('math-breakdown-container');
+            mathContainer.innerHTML = '';
+
+            if (processedSegments.length === 0) {
+                mathContainer.innerHTML = `<div class="text-slate-500 font-medium text-center py-6 text-xs">Ingresa coordenadas para ver la bitácora de cálculo didáctico paso a paso.</div>`;
+            } else {
+                processedSegments.forEach((seg) => {
+                    const mathCard = document.createElement('div');
+                    mathCard.className = "bg-slate-900 text-slate-100 p-4 rounded-2xl border border-slate-800 space-y-3 shadow-md";
+                    
+                    let pStatusColor = "text-emerald-400";
+                    let pStatusLabel = "Presión Buena (Suministro normal)";
+                    if (seg.endPressure < 15) {
+                        pStatusColor = "text-rose-400";
+                        pStatusLabel = "🔴 ALERTA: Presión Crítica Baja (Requiere bomba)";
+                    } else if (seg.endPressure < 25) {
+                        pStatusColor = "text-amber-400";
+                        pStatusLabel = "⚠️ ADVERTENCIA: Presión Moderada";
+                    }
+
+                    mathCard.innerHTML = `
+                        <div class="flex justify-between items-center border-b border-slate-700 pb-2 flex-wrap gap-2">
+                            <span class="font-bold text-sky-400 text-xs sm:text-sm">Tramo ${seg.id}: (${seg.x1}, ${seg.y1}) ➔ (${seg.x2}, ${seg.y2})</span>
+                            <span class="font-mono text-teal-300 font-black text-xs sm:text-sm">$${seg.segmentCostCop.toLocaleString('es-CO')} COP</span>
+                        </div>
+
+                        <!-- Step 1: Distance -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between items-center text-xs text-slate-300 font-bold">
+                                <span>1. Distancia Euclidiana y Longitud Real:</span>
+                                <span class="text-sky-300 font-normal">Fórmula: d = √[(Δx)² + (Δy)²]</span>
+                            </div>
+                            <div class="font-mono text-xs text-sky-200 bg-slate-950 p-2.5 rounded-xl border border-slate-800 leading-relaxed">
+                                d = √[(${seg.x2} - ${seg.x1})² + (${seg.y2} - ${seg.y1})²] = ${seg.gridDist.toFixed(2)} unidades<br>
+                                Longitud Real (L) = ${seg.gridDist.toFixed(2)} u × ${state.config.scale} m/u = <span class="text-teal-300 font-black">${seg.lengthM.toFixed(2)} metros</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 italic">💡 <strong>Explicación Didáctica:</strong> Calculamos la distancia en línea recta en la gráfica y la multiplicamos por la escala (${state.config.scale}m por unidad) para obtener la longitud real de tubería PVC.</p>
+                        </div>
+
+                        <!-- Step 2: Midpoint -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between items-center text-xs text-slate-300 font-bold">
+                                <span>2. Ubicación de Válvula de Control (Punto Medio M):</span>
+                                <span class="text-amber-300 font-normal">Fórmula: M = [(x1+x2)/2, (y1+y2)/2]</span>
+                            </div>
+                            <div class="font-mono text-xs text-amber-200 bg-slate-950 p-2.5 rounded-xl border border-slate-800 leading-relaxed">
+                                M = [ (${seg.x1} + ${seg.x2})/2 , (${seg.y1} + ${seg.y2})/2 ] = <span class="text-amber-300 font-black">(${seg.midpoint.x}, ${seg.midpoint.y})</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 italic">💡 <strong>Explicación Didáctica:</strong> El Punto Medio ubica el centro exacto del tramo para la instalación de una válvula de corte para cortes de mantenimiento.</p>
+                        </div>
+
+                        <!-- Step 3: Hydraulics -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between items-center text-xs text-slate-300 font-bold">
+                                <span>3. Pérdida de Carga y Presión Resultante:</span>
+                                <span class="text-emerald-300 font-normal">P_final = P_inicial - Pérdidas</span>
+                            </div>
+                            <div class="font-mono text-xs text-slate-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800 leading-relaxed">
+                                Presión Entrada: <span class="font-bold text-white">${seg.startPressure.toFixed(2)} PSI</span><br>
+                                Pérdida por Fricción: ${seg.lengthM.toFixed(1)}m × ${state.lossRatesPsiPerM[seg.diameter]} PSI/m = <span class="text-rose-300">-${seg.pipeLoss.toFixed(2)} PSI</span><br>
+                                ${seg.hasValve ? `Pérdida Válvula Control: <span class="text-rose-300">-2.50 PSI</span><br>` : ''}
+                                Presión Salida en Punto B: <span class="${pStatusColor} font-black">${seg.endPressure.toFixed(2)} PSI</span> (${pStatusLabel})
+                            </div>
+                            <p class="text-[11px] text-slate-400 italic">💡 <strong>Explicación Didáctica:</strong> El agua pierde presión al friccionar contra las paredes internas del tubo y al atravesar accesorios. Diámetros más grandes sufren menos pérdida de presión.</p>
+                        </div>
+                    `;
+                    mathContainer.appendChild(mathCard);
+                });
+            }
+
+            drawCanvas();
+        }
+
+        // Global function to remove a segment
+        window.removeSegment = function(idx) {
+            state.segments.splice(idx, 1);
+            updateUI();
+        };
+
+        function attachEventListeners() {
+            // Button: Scale Explanation Tooltip Toggle
+            const btnScaleInfo = document.getElementById('btn-scale-info');
+            const scaleTooltip = document.getElementById('scale-tooltip');
+            
+            btnScaleInfo.addEventListener('click', (e) => {
+                e.stopPropagation();
+                scaleTooltip.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', () => {
+                scaleTooltip.classList.add('hidden');
+            });
+
+            // Button: "Proyectar / Vista Previa en Plano"
+            document.getElementById('btn-preview-segment').addEventListener('click', () => {
+                const x1 = parseFloat(document.getElementById('inp-x1').value);
+                const y1 = parseFloat(document.getElementById('inp-y1').value);
+                const x2 = parseFloat(document.getElementById('inp-x2').value);
+                const y2 = parseFloat(document.getElementById('inp-y2').value);
+                const diameter = document.getElementById('inp-diameter').value;
+                const hasValve = document.getElementById('inp-valve').value === 'yes';
+
+                state.previewSegment = { x1, y1, x2, y2, diameter, hasValve };
+                document.getElementById('preview-status-banner').classList.remove('hidden');
+                drawCanvas();
+            });
+
+            // Button: "Registrar Tramo" (Form Submit)
+            document.getElementById('form-add-segment').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const x1 = parseFloat(document.getElementById('inp-x1').value);
+                const y1 = parseFloat(document.getElementById('inp-y1').value);
+                const x2 = parseFloat(document.getElementById('inp-x2').value);
+                const y2 = parseFloat(document.getElementById('inp-y2').value);
+                const diameter = document.getElementById('inp-diameter').value;
+                const hasValve = document.getElementById('inp-valve').value === 'yes';
+
+                const newId = `T${state.segments.length + 1}`;
+                state.segments.push({ id: newId, x1, y1, x2, y2, diameter, hasValve });
+
+                state.previewSegment = null;
+                document.getElementById('preview-status-banner').classList.add('hidden');
+
+                // Auto-advance starting point A to endpoint B
+                document.getElementById('inp-x1').value = x2;
+                document.getElementById('inp-y1').value = y2;
+                document.getElementById('inp-x2').value = x2 + 15;
+                document.getElementById('inp-y2').value = y2;
+
+                updateUI();
+            });
+
+            // Configuration inputs
+            document.getElementById('cfg-scale').addEventListener('input', (e) => {
+                state.config.scale = parseFloat(e.target.value) || 10;
+                updateUI();
+            });
+
+            document.getElementById('cfg-trm').addEventListener('input', (e) => {
+                state.config.trm = parseFloat(e.target.value) || 4000;
+                updateUI();
+            });
+
+            document.getElementById('cfg-source-pressure').addEventListener('input', (e) => {
+                state.config.sourcePressurePsi = parseFloat(e.target.value) || 50;
+                updateUI();
+            });
+
+            document.getElementById('cfg-pipe-price').addEventListener('input', (e) => {
+                state.config.pipePriceCop = parseFloat(e.target.value) || 45000;
+                updateUI();
+            });
+
+            document.getElementById('cfg-valve-price').addEventListener('input', (e) => {
+                state.config.valvePriceCop = parseFloat(e.target.value) || 180000;
+                updateUI();
+            });
+
+            document.getElementById('btn-clear-all').addEventListener('click', () => {
+                state.segments = [];
+                state.previewSegment = null;
+                document.getElementById('preview-status-banner').classList.add('hidden');
+                updateUI();
+            });
+
+            // On-screen Zoom Buttons
+            document.getElementById('btn-zoom-in').addEventListener('click', () => {
+                state.viewport.zoom = Math.min(3.0, state.viewport.zoom + 0.2);
+                drawCanvas();
+            });
+
+            document.getElementById('btn-zoom-out').addEventListener('click', () => {
+                state.viewport.zoom = Math.max(0.4, state.viewport.zoom - 0.2);
+                drawCanvas();
+            });
+
+            document.getElementById('btn-reset-view').addEventListener('click', () => {
+                state.viewport.zoom = 1.0;
+                state.viewport.panX = 0;
+                state.viewport.panY = 0;
+                drawCanvas();
+            });
+
+            // Mouse Wheel Zoom
+            canvasContainer.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+                state.viewport.zoom = Math.min(3.5, Math.max(0.3, state.viewport.zoom * zoomFactor));
+                drawCanvas();
+            }, { passive: false });
+
+            // Canvas Pan Dragging & Point Selection
+            canvasContainer.addEventListener('mousedown', (e) => {
+                state.viewport.isDragging = true;
+                state.viewport.startX = e.clientX - state.viewport.panX;
+                state.viewport.startY = e.clientY - state.viewport.panY;
+                state.viewport.hasDragged = false;
+                canvasContainer.classList.remove('grab-cursor');
+                canvasContainer.classList.add('grabbing-cursor');
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                const rect = canvasContainer.getBoundingClientRect();
+                const width = rect.width;
+                const height = rect.height;
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const effectiveGridScale = 9 * state.viewport.zoom;
+
+                if (state.viewport.isDragging) {
+                    const newPanX = e.clientX - state.viewport.startX;
+                    const newPanY = e.clientY - state.viewport.startY;
+                    
+                    if (Math.abs(newPanX - state.viewport.panX) > 3 || Math.abs(newPanY - state.viewport.panY) > 3) {
+                        state.viewport.hasDragged = true;
+                    }
+
+                    state.viewport.panX = newPanX;
+                    state.viewport.panY = newPanY;
+                    drawCanvas();
+                }
+
+                // Coordinate readout under cursor
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const gridPos = screenToGrid(mouseX, mouseY, centerX, centerY, effectiveGridScale);
+                document.getElementById('mouse-coords').textContent = `Coord: (${gridPos.x}, ${gridPos.y})`;
+            });
+
+            window.addEventListener('mouseup', (e) => {
+                if (state.viewport.isDragging) {
+                    state.viewport.isDragging = false;
+                    canvasContainer.classList.remove('grabbing-cursor');
+                    canvasContainer.classList.add('grab-cursor');
+
+                    // If user clicked without dragging, set Point B (X2, Y2)
+                    if (!state.viewport.hasDragged) {
+                        const rect = canvasContainer.getBoundingClientRect();
+                        const mouseX = e.clientX - rect.left;
+                        const mouseY = e.clientY - rect.top;
+
+                        if (mouseX >= 0 && mouseX <= rect.width && mouseY >= 0 && mouseY <= rect.height) {
+                            const effectiveGridScale = 9 * state.viewport.zoom;
+                            const gridPos = screenToGrid(mouseX, mouseY, rect.width / 2, rect.height / 2, effectiveGridScale);
+
+                            document.getElementById('inp-x2').value = gridPos.x;
+                            document.getElementById('inp-y2').value = gridPos.y;
+
+                            if (state.previewSegment) {
+                                state.previewSegment.x2 = gridPos.x;
+                                state.previewSegment.y2 = gridPos.y;
+                                drawCanvas();
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Application
+        window.onload = function() {
+            attachEventListeners();
+            updateUI();
+            window.addEventListener('resize', drawCanvas);
+        };
+    </script>
+</body>
+</html>
